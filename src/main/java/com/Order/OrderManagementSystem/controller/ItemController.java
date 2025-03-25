@@ -57,7 +57,7 @@ public class ItemController {
 	@GetMapping("/getSellerItems")
 	public ResponseEntity<List<Item>> getSellerItems(@AuthenticationPrincipal UserDetails userDetails) {
 		
-		return itemservice.ListOfSellerItems(userDetails.getUsername());
+		return itemservice.listOfSellerItems(userDetails.getUsername());
 		
 	}
 	
