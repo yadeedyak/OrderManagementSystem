@@ -16,7 +16,7 @@ import com.Order.OrderManagementSystem.entity.User;
 public interface OrderItemRepository extends JpaRepository<OrderItem,Long>{
 	
 	List<OrderItem>findByCustomer(User user);
-//	List<OrderItem> findByDateBefore(LocalDateTime cutoffTime);
+	List<OrderItem> findByDateBefore(LocalDateTime cutoffTime);
 
 
 

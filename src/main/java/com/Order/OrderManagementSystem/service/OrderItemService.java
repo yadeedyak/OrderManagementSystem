@@ -6,6 +6,7 @@ import java.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import com.Order.OrderManagementSystem.dtos.OrderItemDto;
@@ -27,45 +28,6 @@ public class OrderItemService {
 
 	@Autowired
 	private OrderItemRepository orderItemRepository;
-//	public ResponseEntity<?> createOrder(OrderItem orderItems, String username) {
-//		User customer = userRepository.findByUsername(username).orElse(null);
-//		if (customer == null) {
-//			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid customer");
-//		}
-//
-//		List<Long> orderItemIds = orderItems.getItemIds();
-//		orderItems.setDate(new Date().now);
-//		List<OrderItemDto> orderItemDtos = new ArrayList<>();
-//		Map<User, OrderItem> sellerOrderMap = new HashMap<>();
-//
-//		for (Long id : orderItemIds) {
-//			Item item = itemRepository.findById(id).orElse(null);
-//			if (item != null) {
-//				orderItemDtos.add(new OrderItemDto(item));
-//
-//				User seller = item.getSeller();
-//				sellerOrderMap.putIfAbsent(seller, new OrderItem());
-//				OrderItem sellerOrder = sellerOrderMap.get(seller);
-//
-//				sellerOrder.getItemIds().add(item.getId());
-//				sellerOrder.setCustomer(customer);
-//				sellerOrder.setSeller(seller);
-//			}
-//		}
-//
-//		// Save orders and update seller's sellerOrders list
-//		for (Map.Entry<User, OrderItem> entry : sellerOrderMap.entrySet()) {
-//			User seller = entry.getKey();
-//			OrderItem sellerOrder = entry.getValue();
-//
-//			orderItemRepository.save(sellerOrder);
-//			seller.getSellerOrders().add(sellerOrder);
-//			userRepository.save(seller);
-//		}
-//
-//		return ResponseEntity.status(HttpStatus.CREATED).body(orderItemDtos);
-//	}
-//
 
 
 	public ResponseEntity<?> createOrder(OrderItem orderItems, String username) {
@@ -107,17 +69,6 @@ public class OrderItemService {
 
 		return ResponseEntity.status(HttpStatus.CREATED).body(orderItemDtos);
 	}
-
-
-
-
-
-
-
-
-
-
-
 
 
 	//paraters are Buyer userName and Item id (requrie to do changes in there order like to delete few items in existing order
@@ -178,27 +129,64 @@ public class OrderItemService {
 		
 	}
 
+	//schedule the deletion
+	@Scheduled(fixedRate = 5400000) // 1.5 hours in milliseconds
+	public void autoDeleteExpiredOrders() {
+		LocalDateTime expiryTime = LocalDateTime.now().minusMinutes(90);
+		List<OrderItem> expiredOrders = orderItemRepository.findByDateBefore(expiryTime);
+
+		for (OrderItem orderItem : expiredOrders) {
+			User customer = orderItem.getCustomer();
+			if (customer != null) {
+				customer.getCustomerOrders().remove(orderItem);
+				userRepository.save(customer);
+			}
+
+			User seller = orderItem.getSeller();
+			if (seller != null) {
+				seller.getSellerOrders().remove(orderItem);
+				userRepository.save(seller);
+			}
+
+			orderItemRepository.delete(orderItem);
+		}
+	}
+
+	//manual deletion
+
+	public ResponseEntity<?> deleteOrder(Long orderItemId, String username) {
+		User customer = userRepository.findByUsername(username).orElse(null);
+		if (customer == null) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid customer");
+		}
+
+		OrderItem orderItem = orderItemRepository.findById(orderItemId).orElse(null);
+		if (orderItem == null || !orderItem.getCustomer().equals(customer)) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Order not found or not authorized to delete");
+		}
+
+		// Remove from seller's orders list
+		User seller = orderItem.getSeller();
+		if (seller != null) {
+			seller.getSellerOrders().remove(orderItem);
+			userRepository.save(seller);
+		}
+
+		// Remove from customer's orders list
+		customer.getCustomerOrders().remove(orderItem);
+		userRepository.save(customer);
+
+		// Delete the order from the repository
+		orderItemRepository.delete(orderItem);
+
+		return ResponseEntity.status(HttpStatus.OK).body("Order deleted successfully");
+	}
+
+
+
+
 
 }
 
 
 
-//	    // Fetch the user's existing orders or Buyer
-//	    List<OrderItem> orderItems = orderItemRepository.findByUser(user);
-//	    if (orderItems == null || orderItems.isEmpty()) {
-//	        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("No items found in order");
-//	    }
-//
-//
-//		List<OrderItemDto> items = new ArrayList<>();
-//
-//		for(OrderItem orders : orderItems) {
-//			for (Long itemId : orders.getItems()) {
-//
-//				Item listedItem = itemRepository.findById(itemId).orElse(null);
-//				OrderItemDto order = new OrderItemDto(listedItem);
-//				items.add(order);
-//
-//			}
-//
-//		}
